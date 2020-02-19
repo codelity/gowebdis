@@ -1,6 +1,7 @@
 package gowebdis
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var connType string
@@ -26,20 +28,22 @@ type JsonPayload struct {
 }
 
 type CommandResponse struct {
-	Name         string `json:"name"`
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"errorMessage"`
-	BoolVal      bool   `json:"boolValue"`
-	MapVal       map[string]string
-	IntVal       int64
+	Name         string            `json:"name"`
+	Success      bool              `json:"success"`
+	ErrorMessage string            `json:"errorMessage"`
+	BoolVal      bool              `json:"boolValue"`
+	MapVal       map[string]string `json:"mapValue"`
+	IntVal       int64             `json:"intVal"`
+	StringVal    string            `json:"stringVal"`
 }
 
-func InitConnectionSetting(cmd *cobra.Command) {
-	sentinelAddressString, _ := cmd.Flags().GetString("sentinel-address")
+func InitConnectionSetting(cmd *cobra.Command) error {
+
+	sentinelAddressString := viper.GetString("sentinel-address")
 	if len(sentinelAddressString) > 0 {
 		connFailoverOptions = initFailoverConnectionSetting(sentinelAddressString, cmd)
 	} else {
-		hostString, _ := cmd.Flags().GetString("host")
+		hostString := viper.GetString("host")
 		if len(hostString) > 0 {
 			hostArray := strings.Split(hostString, ",")
 			if len(hostArray) > 1 {
@@ -48,9 +52,16 @@ func InitConnectionSetting(cmd *cobra.Command) {
 				connHostOptions = initHostConnectionSetting(hostArray[0], cmd)
 			}
 		}
-
 	}
+	if connType == "cluster" {
 
+	} else {
+		var commandResponse = ping()
+		if !commandResponse.Success {
+			return errors.New(commandResponse.ErrorMessage)
+		}
+	}
+	return nil
 }
 
 func initFailoverConnectionSetting(sentinelAddressString string, cmd *cobra.Command) redis.FailoverOptions {
@@ -59,24 +70,24 @@ func initFailoverConnectionSetting(sentinelAddressString string, cmd *cobra.Comm
 	var options redis.FailoverOptions
 
 	sentinelAddress := strings.Split(sentinelAddressString, ",")
-	masterName, _ := cmd.Flags().GetString("master-name")
+	masterName := viper.GetString("master-name")
 
-	password, _ := cmd.Flags().GetString("password")
-	db, _ := cmd.Flags().GetInt("db")
+	password := viper.GetString("password")
+	db := viper.GetInt("db")
 
-	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	minRetryBackoff, _ := cmd.Flags().GetInt("min-retry-backoff")
-	maxRetryBackoff, _ := cmd.Flags().GetInt("max-retry-backoff")
-	dialTimeout, _ := cmd.Flags().GetInt("dial-timeout")
-	readTimeout, _ := cmd.Flags().GetInt("read-timeout")
-	writeTimeout, _ := cmd.Flags().GetInt("write-timeout")
+	maxRetries := viper.GetInt("max-retries")
+	minRetryBackoff := viper.GetInt("min-retry-backoff")
+	maxRetryBackoff := viper.GetInt("max-retry-backoff")
+	dialTimeout := viper.GetInt("dial-timeout")
+	readTimeout := viper.GetInt("read-timeout")
+	writeTimeout := viper.GetInt("write-timeout")
 
-	poolSize, _ := cmd.Flags().GetInt("pool-size")
-	minIdleConns, _ := cmd.Flags().GetInt("min-idle-conns")
-	maxConnAge, _ := cmd.Flags().GetInt("min-conn-age")
-	poolTimeout, _ := cmd.Flags().GetInt("pool-timeout")
-	idleTimeout, _ := cmd.Flags().GetInt("idle-timeout")
-	idleCheckFrequencey, _ := cmd.Flags().GetInt("idle-check-frequency")
+	poolSize := viper.GetInt("pool-size")
+	minIdleConns := viper.GetInt("min-idle-conns")
+	maxConnAge := viper.GetInt("min-conn-age")
+	poolTimeout := viper.GetInt("pool-timeout")
+	idleTimeout := viper.GetInt("idle-timeout")
+	idleCheckFrequencey := viper.GetInt("idle-check-frequency")
 
 	options.MasterName = masterName
 	options.SentinelAddrs = sentinelAddress
@@ -130,21 +141,21 @@ func initClusterConnectionSetting(hostAddresses []string, cmd *cobra.Command) re
 	connType = "cluster"
 	var options redis.ClusterOptions
 
-	password, _ := cmd.Flags().GetString("password")
+	password := viper.GetString("password")
 
-	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	minRetryBackoff, _ := cmd.Flags().GetInt("min-retry-backoff")
-	maxRetryBackoff, _ := cmd.Flags().GetInt("max-retry-backoff")
-	dialTimeout, _ := cmd.Flags().GetInt("dial-timeout")
-	readTimeout, _ := cmd.Flags().GetInt("read-timeout")
-	writeTimeout, _ := cmd.Flags().GetInt("write-timeout")
+	maxRetries := viper.GetInt("max-retries")
+	minRetryBackoff := viper.GetInt("min-retry-backoff")
+	maxRetryBackoff := viper.GetInt("max-retry-backoff")
+	dialTimeout := viper.GetInt("dial-timeout")
+	readTimeout := viper.GetInt("read-timeout")
+	writeTimeout := viper.GetInt("write-timeout")
 
-	poolSize, _ := cmd.Flags().GetInt("pool-size")
-	minIdleConns, _ := cmd.Flags().GetInt("min-idle-conns")
-	maxConnAge, _ := cmd.Flags().GetInt("min-conn-age")
-	poolTimeout, _ := cmd.Flags().GetInt("pool-timeout")
-	idleTimeout, _ := cmd.Flags().GetInt("idle-timeout")
-	idleCheckFrequencey, _ := cmd.Flags().GetInt("idle-check-frequency")
+	poolSize := viper.GetInt("pool-size")
+	minIdleConns := viper.GetInt("min-idle-conns")
+	maxConnAge := viper.GetInt("min-conn-age")
+	poolTimeout := viper.GetInt("pool-timeout")
+	idleTimeout := viper.GetInt("idle-timeout")
+	idleCheckFrequencey := viper.GetInt("idle-check-frequency")
 
 	options.Addrs = hostAddresses
 	if len(password) > 0 {
@@ -190,22 +201,22 @@ func initHostConnectionSetting(hostAddress string, cmd *cobra.Command) redis.Opt
 	connType = "host"
 	var options redis.Options
 
-	password, _ := cmd.Flags().GetString("password")
-	db, _ := cmd.Flags().GetInt("db")
+	password := viper.GetString("password")
+	db := viper.GetInt("db")
 
-	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	minRetryBackoff, _ := cmd.Flags().GetInt("min-retry-backoff")
-	maxRetryBackoff, _ := cmd.Flags().GetInt("max-retry-backoff")
-	dialTimeout, _ := cmd.Flags().GetInt("dial-timeout")
-	readTimeout, _ := cmd.Flags().GetInt("read-timeout")
-	writeTimeout, _ := cmd.Flags().GetInt("write-timeout")
+	maxRetries := viper.GetInt("max-retries")
+	minRetryBackoff := viper.GetInt("min-retry-backoff")
+	maxRetryBackoff := viper.GetInt("max-retry-backoff")
+	dialTimeout := viper.GetInt("dial-timeout")
+	readTimeout := viper.GetInt("read-timeout")
+	writeTimeout := viper.GetInt("write-timeout")
 
-	poolSize, _ := cmd.Flags().GetInt("pool-size")
-	minIdleConns, _ := cmd.Flags().GetInt("min-idle-conns")
-	maxConnAge, _ := cmd.Flags().GetInt("min-conn-age")
-	poolTimeout, _ := cmd.Flags().GetInt("pool-timeout")
-	idleTimeout, _ := cmd.Flags().GetInt("idle-timeout")
-	idleCheckFrequencey, _ := cmd.Flags().GetInt("idle-check-frequency")
+	poolSize := viper.GetInt("pool-size")
+	minIdleConns := viper.GetInt("min-idle-conns")
+	maxConnAge := viper.GetInt("min-conn-age")
+	poolTimeout := viper.GetInt("pool-timeout")
+	idleTimeout := viper.GetInt("idle-timeout")
+	idleCheckFrequencey := viper.GetInt("idle-check-frequency")
 
 	options.Addr = hostAddress
 	if len(password) > 0 {
@@ -264,6 +275,8 @@ func startClusterConnection() *redis.ClusterClient {
 func RunRedisCommand(redisCommand string, jsonPayload JsonPayload) CommandResponse {
 	var commandResponse = CommandResponse{}
 	switch redisCommand {
+	case "ping":
+		commandResponse = ping()
 	case "hset":
 		commandResponse = hSet(jsonPayload.Key, jsonPayload.Field, jsonPayload.Value)
 	case "hgetall":
@@ -273,33 +286,91 @@ func RunRedisCommand(redisCommand string, jsonPayload JsonPayload) CommandRespon
 	default:
 		commandResponse.Success = false
 		commandResponse.ErrorMessage = fmt.Sprintf(`Does not support %v command`, redisCommand)
-		log.Error(commandResponse.ErrorMessage)
+		log.Error("[ERROR] " + commandResponse.ErrorMessage)
 	}
 	return commandResponse
 }
 
-func hSet(key string, field string, value string) CommandResponse {
-	var boolCmd *redis.BoolCmd
+func ping() CommandResponse {
+	var statusCmd *redis.StatusCmd
+	var commandResponse = CommandResponse{Name: "ping"}
 
 	if connType == "cluster" {
 		var conn = startConnection()
-		boolCmd = conn.HSet(key, field, value)
-		conn.Close()
+		if conn != nil {
+			statusCmd = conn.Ping()
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	} else {
 		var conn = startConnection()
-		boolCmd = conn.HSet(key, field, value)
-		conn.Close()
+		if conn != nil {
+			statusCmd = conn.Ping()
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	}
 
-	var commandResponse = CommandResponse{Name: boolCmd.Name()}
+	var err = statusCmd.Err()
+	if err != nil {
+		commandResponse.Success = false
+		commandResponse.ErrorMessage = err.Error()
+		log.Error("[ERROR] " + commandResponse.ErrorMessage)
+	} else {
+		commandResponse.Success = true
+		commandResponse.StringVal = statusCmd.Val()
+		log.Info("[INFO] " + statusCmd.String())
+	}
+	return commandResponse
+
+}
+
+func hSet(key string, field string, value string) CommandResponse {
+	var boolCmd *redis.BoolCmd
+	var commandResponse = CommandResponse{Name: "hset"}
+
+	if connType == "cluster" {
+		var conn = startConnection()
+		if conn != nil {
+			boolCmd = conn.HSet(key, field, value)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
+	} else {
+		var conn = startConnection()
+		if conn != nil {
+			boolCmd = conn.HSet(key, field, value)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
+	}
+
 	var err = boolCmd.Err()
 	if err != nil {
 		commandResponse.Success = false
 		commandResponse.ErrorMessage = err.Error()
-		log.Error(err)
+
+		log.Error("[ERROR] " + commandResponse.ErrorMessage)
 	} else {
 		commandResponse.Success = true
 		commandResponse.BoolVal = true
+		log.Info("[INFO] " + boolCmd.String())
 	}
 	return commandResponse
 
@@ -307,54 +378,81 @@ func hSet(key string, field string, value string) CommandResponse {
 
 func hGetAll(key string) CommandResponse {
 	var stringStringMapCmd *redis.StringStringMapCmd
+	var commandResponse = CommandResponse{Name: "hgetall"}
 
 	if connType == "cluster" {
 		var conn = startConnection()
-		stringStringMapCmd = conn.HGetAll(key)
-		conn.Close()
+		if conn != nil {
+			stringStringMapCmd = conn.HGetAll(key)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	} else {
 		var conn = startConnection()
-		stringStringMapCmd = conn.HGetAll(key)
-		conn.Close()
+		if conn != nil {
+			stringStringMapCmd = conn.HGetAll(key)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	}
 
-	var commandResponse = CommandResponse{Name: stringStringMapCmd.Name()}
 	var err = stringStringMapCmd.Err()
 	if err != nil {
 		commandResponse.Success = false
 		commandResponse.ErrorMessage = err.Error()
-		log.Error(err)
+		log.Error("[ERROR] " + commandResponse.ErrorMessage)
 	} else {
 		commandResponse.Success = true
 		commandResponse.MapVal = stringStringMapCmd.Val()
-		log.Info(commandResponse.MapVal)
+		log.Info("[INFO] " + stringStringMapCmd.String())
 	}
 	return commandResponse
-
 }
 
 func hDel(key string, fields []string) CommandResponse {
 	var intCmd *redis.IntCmd
+	var commandResponse = CommandResponse{Name: "hdel"}
 
 	if connType == "cluster" {
 		var conn = startConnection()
-		intCmd = conn.HDel(key, fields...)
-		conn.Close()
+		if conn != nil {
+			intCmd = conn.HDel(key, fields...)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	} else {
 		var conn = startConnection()
-		intCmd = conn.HDel(key, fields...)
-		conn.Close()
+		if conn != nil {
+			intCmd = conn.HDel(key, fields...)
+			defer conn.Close()
+		} else {
+			commandResponse.Success = false
+			commandResponse.ErrorMessage = "Cannot make redis connection"
+			log.Error("[ERROR] " + commandResponse.ErrorMessage)
+			return commandResponse
+		}
 	}
 
-	var commandResponse = CommandResponse{Name: intCmd.Name()}
 	var err = intCmd.Err()
 	if err != nil {
 		commandResponse.Success = false
 		commandResponse.ErrorMessage = err.Error()
-		log.Error(err)
+		log.Error("[ERROR] " + commandResponse.ErrorMessage)
 	} else {
 		commandResponse.Success = true
-		commandResponse.IntVal = intCmd.Val()
+		log.Info("[INFO] " + intCmd.String())
 	}
 	return commandResponse
 

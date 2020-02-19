@@ -16,23 +16,24 @@ limitations under the License.
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	// "github.com/go-redis/redis"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
-	"bitbucket.org/codelity/gowebdis/api"
-	"bitbucket.org/codelity/gowebdis/internal/gowebdis"
+	"github.com/codelity/gowebdis/api"
+	"github.com/codelity/gowebdis/internal/gowebdis"
 )
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start gowebdis",
-	Run: runStartCmd,
+	Run:   runStartCmd,
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-
 	startCmd.Flags().String("host", "", "Redis host list seperated by comma")
 	startCmd.Flags().String("master-name", "", "master name of sentinel")
 	startCmd.Flags().String("sentinel-address", "", "master name of sentinel")
@@ -50,11 +51,19 @@ func init() {
 	startCmd.Flags().Int("pool-timeout", -1, "Pool timeout")
 	startCmd.Flags().Int("idle-timeout", 900, "Idle timeout")
 	startCmd.Flags().Int("idle-check-frequency", 900, "Idle check frequency")
+	viper.BindPFlag("host", startCmd.Flags().Lookup("host"))
+	startCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		viper.BindEnv(flag.Name)
+		viper.BindPFlag(flag.Name, flag)
+	})
 }
 
 func runStartCmd(cmd *cobra.Command, args []string) {
-	gowebdis.InitConnectionSetting(cmd)
-	
-	api.StartServer()
+	err := gowebdis.InitConnectionSetting(cmd)
+	if err != nil {
+		log.Error("[ERROR] " + err.Error())
+	} else {
+		api.StartServer()
+	}
 
 }
