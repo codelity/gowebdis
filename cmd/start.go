@@ -34,7 +34,7 @@ var startCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	startCmd.Flags().String("host", "", "Redis host list seperated by comma")
+	startCmd.Flags().String("host", "", "Redis host list (format <host>:<port> seperated by comma")
 	startCmd.Flags().String("master-name", "", "master name of sentinel")
 	startCmd.Flags().String("sentinel-address", "", "master name of sentinel")
 	startCmd.Flags().String("password", "", "Conection password")
