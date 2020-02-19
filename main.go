@@ -19,7 +19,7 @@ import (
 	"os"
 	log "github.com/sirupsen/logrus"
 	
-	"bitbucket.org/codelity/gowebdis/cmd"
+	"github.com/codelity/gowebdis/cmd"
 )
 
 func main() {

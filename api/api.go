@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
-	"bitbucket.org/codelity/gowebdis/internal/gowebdis"
+	"github.com/codelity/gowebdis/internal/gowebdis"
 )
 
 type ApiResponse struct {
@@ -15,11 +15,24 @@ type ApiResponse struct {
 func StartServer() {
 
 	router := gin.Default()
-	router.POST("/:command", ApiCommand)
+	router.GET("/healthz", pingCommand)
+	router.POST("/:command", apiCommand)
 	router.Run()
 }
 
-func ApiCommand(context *gin.Context) {
+func pingCommand(context *gin.Context) {
+	var jsonPayload gowebdis.JsonPayload
+	var commandResponse gowebdis.CommandResponse
+	commandResponse = gowebdis.RunRedisCommand("ping", jsonPayload)
+	if commandResponse.Success {
+		context.JSON(200, gin.H{"boolVal": true})
+	} else {
+		context.JSON(400, gin.H{"errorMessage": commandResponse.ErrorMessage})
+	}
+	return
+}
+
+func apiCommand(context *gin.Context) {
 
 	var jsonPayload gowebdis.JsonPayload
 
@@ -28,16 +41,16 @@ func ApiCommand(context *gin.Context) {
 
 	err := context.BindJSON(&jsonPayload)
 	if err != nil {
-		log.Error("[ERROR]" + err.Error())
+		log.Error("[ERROR] " + err.Error())
 		context.JSON(400, gin.H{
 			"errorMessage": err.Error(),
 		})
-		return 
+		return
 	}
 
 	err = validateJsonPayload(command, jsonPayload)
 	if err != nil {
-		log.Error("[ERROR]" + err.Error())
+		log.Error("[ERROR] " + err.Error())
 		context.JSON(400, gin.H{
 			"errorMessage": err.Error(),
 		})
@@ -67,6 +80,7 @@ func ApiCommand(context *gin.Context) {
 			"errorMessage": commandResponse.ErrorMessage,
 		})
 	}
+	return
 }
 
 func getStringArrayValue(m map[string]string) []string {
